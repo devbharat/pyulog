@@ -38,7 +38,7 @@ def main():
     convert_ulog2h5py(args.filename, args.messages, args.output)
 
 
-def convert_ulog2csv(ulog_file_name, messages=None, output=None):
+def convert_ulog2h5py(ulog_file_name, messages=None, output=None):
     """
     Coverts and ULog file to a h5py file.
 
