@@ -3,12 +3,13 @@
 import numpy as np
 import h5py
 import struct, sys, os
-import PYlog
 import copy
 import multiprocessing as mp
+from pyulog import ULog
 
 def procS(file_name):
-	ulog2h5py(file_name)
+	p = ULog(file_name)
+	p.ulog2h5py()
 
 if __name__ == "__main__":
 	if len(sys.argv) < 2:
@@ -19,7 +20,7 @@ if __name__ == "__main__":
 		datafilenameList = []
 		logfilenameList = []
 		processes = []
-		poo = mp.Pool(processes=3,maxtasksperchild=10)
+		poo = mp.Pool(processes=6,maxtasksperchild=10)
 		# is directory, look for all files inside it
 		for root, dirs, files in os.walk(sys.argv[1]):
 			for file in files:
@@ -33,9 +34,9 @@ if __name__ == "__main__":
 					else:
 						datafilenameList.append(datafilename)
 						logfilenameList.append(logfilename)
-						poo.apply(procS, (logfilename,))
+						poo.apply_async(procS, (logfilename,))
 
-		poo.map(procS, logfilenameList)
+		# poo.map(procS, logfilenameList)
 		poo.close()
 		poo.join()
 
@@ -46,15 +47,15 @@ if __name__ == "__main__":
 		if (os.path.isfile(datafilename)):
 			pass
 		else:
-			parser = PYlog.sdlog2_pp()
-			parser.process(logfilename)
+			p = ULog(logfilename)
+			p.ulog2h5py()
 
 	M = h5py.File(datafilename, 'r')
-
 	for topic in M.values():
 		for Id in topic.values():
 			for field in Id.values():
 				try:
-					exec('%s = , field.value' % (field.name.replace('/', '_')))
-				except:
+					exec('%s = field.value' % (field.name.replace('/', '_').replace('[', '_').replace(']', '')))
+				except Exception as e:
+					print(e)
 					print('Error executing field.name = field.value')

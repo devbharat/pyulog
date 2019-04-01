@@ -60,6 +60,7 @@ setup(
             'ulog_messages=pyulog.messages:main',
             'ulog_params=pyulog.params:main',
             'ulog2csv=pyulog.ulog2csv:main',
+            'ulog2h5py=pyulog.ulog2h5py:main',
             'ulog2kml=pyulog.ulog2kml:main',
         ],
     },

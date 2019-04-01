@@ -4,12 +4,19 @@ from __future__ import print_function
 
 import struct
 import sys
+import os
 import numpy as np
+import h5py
+import logging
+import progressbar
+
 #pylint: disable=too-many-instance-attributes, unused-argument, missing-docstring
 #pylint: disable=protected-access, too-many-branches
 
 __author__ = "Beat Kueng"
 
+progressbar.streams.wrap_stderr()
+logging.basicConfig()
 
 # check python version
 if sys.hexversion >= 0x030000F0:
@@ -105,6 +112,15 @@ class ULog(object):
         self._compat_flags = [0] * 8
         self._incompat_flags = [0] * 8
         self._appended_offsets = [] # file offsets for appended data
+        self._log_file = log_file
+        self._filesize = 0
+        self._precent_read = 0
+        self._bar = progressbar.ProgressBar(max_value=100)
+
+        try:
+            self._filesize = os.stat(log_file).st_size
+        except Exception as e:
+            print('Error getting filesize. Exception %s' % (e))
 
         self._load_file(log_file, message_name_filter_list)
 
@@ -444,7 +460,7 @@ class ULog(object):
 
         # read the whole file, or the rest if data appended
         self._read_file_data(message_name_filter_list)
-
+        self._bar.update(100.0)
         self._file_handle.close()
         del self._file_handle
 
@@ -538,6 +554,7 @@ class ULog(object):
                 data = self._file_handle.read(3)
                 header.initialize(data)
                 data = self._file_handle.read(header.msg_size)
+
                 if len(data) < header.msg_size:
                     break # less data than expected. File is most likely cut
 
@@ -588,6 +605,12 @@ class ULog(object):
                         # seek back to advance only by a single byte instead of
                         # skipping the message
                         self._file_handle.seek(-2-header.msg_size, 1)
+
+                try:
+                    self._precent_read = 100 * self._file_handle.tell() / self._filesize
+                    self._bar.update(self._precent_read)
+                except:
+                    print(e)
 
         except struct.error:
             pass #we read past the end of the file
@@ -641,3 +664,31 @@ class ULog(object):
             return 'v{}.{}.{}{}'.format(version[0], version[1], version[2], type_str)
         return None
 
+    def ulog2h5py(self):
+        """
+        Coverts and ULog file to a h5py file.
+
+        :param ulog_file_name: The ULog filename to open and read
+        :param messages: A list of message names
+        :param output: Output file path
+
+        :return: None
+        """
+
+        data = self.data_list
+
+        output_file_prefix = self._log_file
+        # strip '.ulg'
+        if output_file_prefix.lower().endswith('.ulg'):
+            output_file_prefix = output_file_prefix[:-4]
+            output_file_name = output_file_prefix + '.hdf5'
+
+        g = h5py.File(output_file_name,'w')
+        for d in data:
+            data_keys = [f.field_name for f in d.field_data]
+            data_keys.remove('timestamp')
+            data_keys.insert(0, 'timestamp')  # we want timestamp at first position
+            for key in data_keys:
+                g.create_dataset(d.name + '/' + str(d.multi_id) + '/'+ key, data=d.data[key], compression="lzf")
+        g.close()
+        del g
