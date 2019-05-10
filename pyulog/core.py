@@ -15,7 +15,7 @@ __author__ = "Beat Kueng"
 if sys.hexversion >= 0x030000F0:
     _RUNNING_PYTHON3 = True
     def _parse_string(cstr):
-        return str(cstr, 'ascii')
+        return str(cstr, 'utf-8', 'ignore')
 else:
     _RUNNING_PYTHON3 = False
     def _parse_string(cstr):
@@ -331,9 +331,9 @@ class ULog(object):
 
         def __init__(self, data, header):
             self.log_level, = struct.unpack('<B', data[0:1])
-            self.timestamp, = struct.unpack('<Q', data[1:9])
-            self.tag = _parse_string(data[9:17]) #char[8]
-            self.message = _parse_string(data[17:])
+            self.tag = struct.unpack('<B', data[1:2])
+            self.timestamp, = struct.unpack('<Q', data[2:10])
+            self.message = _parse_string(data[10:])
 
         def log_level_str(self):
             return {ord('0'): 'EMERGENCY',
