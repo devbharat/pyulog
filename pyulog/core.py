@@ -349,7 +349,6 @@ class ULog(object):
             self.tag = struct.unpack('<B', data[1:2])
             self.timestamp, = struct.unpack('<Q', data[2:10])
             self.message = _parse_string(data[10:])
-            print(self.tag)
 
         def log_level_str(self):
             return {ord('0'): 'EMERGENCY',
@@ -375,64 +374,62 @@ class ULog(object):
 
     class _MessageAddLogged(object):
         """ ULog add logging data message representation """
-        try:
-            def __init__(self, data, header, message_formats):
-                self.multi_id, = struct.unpack('<B', data[0:1])
-                self.msg_id, = struct.unpack('<H', data[1:3])
-                self.message_name = _parse_string(data[3:])
-                # print(self.message_name)
-                self.field_data = [] # list of _FieldData
-                self.timestamp_idx = -1
-                self._parse_format(message_formats)
+        def __init__(self, data, header, message_formats):
+            self.multi_id, = struct.unpack('<B', data[0:1])
+            self.msg_id, = struct.unpack('<H', data[1:3])
+            self.message_name = _parse_string(data[3:])
+            # print(self.message_name)
+            self.field_data = [] # list of _FieldData
+            self.timestamp_idx = -1
+            self._parse_format(message_formats)
 
-                self.timestamp_offset = 0
-                for field in self.field_data:
-                    if field.field_name == 'timestamp':
-                        break
-                    self.timestamp_offset += ULog._UNPACK_TYPES[field.type_str][1]
+            self.timestamp_offset = 0
+            for field in self.field_data:
+                if field.field_name == 'timestamp':
+                    break
+                self.timestamp_offset += ULog._UNPACK_TYPES[field.type_str][1]
 
-                self.buffer = bytearray() # accumulate all message data here
+            self.buffer = bytearray() # accumulate all message data here
 
-                # construct types for numpy
-                dtype_list = []
-                for field in self.field_data:
-                    numpy_type = ULog._UNPACK_TYPES[field.type_str][2]
-                    dtype_list.append((field.field_name, numpy_type))
-                self.dtype = np.dtype(dtype_list).newbyteorder('<')
+            # construct types for numpy
+            dtype_list = []
+            for field in self.field_data:
+                numpy_type = ULog._UNPACK_TYPES[field.type_str][2]
+                dtype_list.append((field.field_name, numpy_type))
+            self.dtype = np.dtype(dtype_list).newbyteorder('<')
 
 
-            def _parse_format(self, message_formats):
-                self._parse_nested_type('', self.message_name, message_formats)
+        def _parse_format(self, message_formats):
+            self._parse_nested_type('', self.message_name, message_formats)
 
-                # remove padding fields at the end
-                while (len(self.field_data) > 0 and
-                       self.field_data[-1].field_name.startswith('_padding')):
-                    self.field_data.pop()
+            # remove padding fields at the end
+            while (len(self.field_data) > 0 and
+                   self.field_data[-1].field_name.startswith('_padding')):
+                self.field_data.pop()
 
-            def _parse_nested_type(self, prefix_str, type_name, message_formats):
-                # we flatten nested types
-                message_format = message_formats[type_name]
-                for (type_name_fmt, array_size, field_name) in message_format.fields:
-                    if type_name_fmt in ULog._UNPACK_TYPES:
-                        if array_size > 1:
-                            for i in range(array_size):
-                                self.field_data.append(ULog._FieldData(
-                                    prefix_str+field_name+'['+str(i)+']', type_name_fmt))
-                        else:
+        def _parse_nested_type(self, prefix_str, type_name, message_formats):
+            # we flatten nested types
+            message_format = message_formats[type_name]
+            for (type_name_fmt, array_size, field_name) in message_format.fields:
+                if type_name_fmt in ULog._UNPACK_TYPES:
+                    if array_size > 1:
+                        for i in range(array_size):
                             self.field_data.append(ULog._FieldData(
-                                prefix_str+field_name, type_name_fmt))
-                        if prefix_str+field_name == 'timestamp':
-                            self.timestamp_idx = len(self.field_data) - 1
-                    else: # nested type
-                        if array_size > 1:
-                            for i in range(array_size):
-                                self._parse_nested_type(prefix_str+field_name+'['+str(i)+'].',
-                                                        type_name_fmt, message_formats)
-                        else:
-                            self._parse_nested_type(prefix_str+field_name+'.',
+                                prefix_str+field_name+'['+str(i)+']', type_name_fmt))
+                    else:
+                        self.field_data.append(ULog._FieldData(
+                            prefix_str+field_name, type_name_fmt))
+                    if prefix_str+field_name == 'timestamp':
+                        self.timestamp_idx = len(self.field_data) - 1
+                else: # nested type
+                    if array_size > 1:
+                        for i in range(array_size):
+                            self._parse_nested_type(prefix_str+field_name+'['+str(i)+'].',
                                                     type_name_fmt, message_formats)
-        except Exception as ex:
-            print(ex)
+                    else:
+                        self._parse_nested_type(prefix_str+field_name+'.',
+                                                type_name_fmt, message_formats)
+
 
     class _MessageData(object):
         def __init__(self):
