@@ -29,6 +29,7 @@ class ULog(object):
 
     ## constants ##
     HEADER_BYTES = b'\x55\x4c\x6f\x67\x01\x12\x35'
+    SYNC_BYTES = b'\x2F\x73\x13\x20\x25\x0C\xBB\x12'
 
     # message types
     MSG_TYPE_FORMAT = ord('F')
@@ -257,7 +258,7 @@ class ULog(object):
         def initialize(self, data):
             self.msg_size, self.msg_type = ULog._unpack_ushort_byte(data)
 
-            if ((self.msg_type not in ULog.ALLOWED_TYPES) or ((self.msg_size > 512) and (self.msg_type is not 70))):
+            if ((self.msg_type not in ULog.ALLOWED_TYPES)):
                 raise Exception("Shit MSG_TYPE byte encountered!")
 
     class _MessageInfo(object):
@@ -562,6 +563,19 @@ class ULog(object):
                     # skipping the message
                     self._file_handle.seek(-2-header.msg_size, 1)
 
+    def _find_sync(self):
+        """
+        read the file handle byte by byte until you find the sync byte sequence
+        """
+        d = self._file_handle.read(1)
+        while(d is not b''):
+            if (d[0] == ULog.SYNC_BYTES[0]):
+                data = self._file_handle.read(7)
+                if (data == ULog.SYNC_BYTES[1:]):
+                    print("Found sync!")
+                    break
+            d = self._file_handle.read(1)
+
     def _read_file_data(self, message_name_filter_list, read_until=None):
         """
         read the file data section
@@ -581,9 +595,15 @@ class ULog(object):
                 try:
                     data = self._file_handle.read(3)
                     header.initialize(data)
+                except struct.error:
+                    break #we read past the end of the file
                 except Exception as ex:
                     print(ex, header.msg_size, header.msg_type)
-                    continue
+                    try:
+                        self._find_sync()
+                        continue
+                    except IndexError:
+                        break #we read past the end of the file
 
                 data = self._file_handle.read(header.msg_size)
                 if len(data) < header.msg_size:
