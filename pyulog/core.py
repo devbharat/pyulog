@@ -100,6 +100,7 @@ class ULog(object):
         self._debug = False
 
         self._file_corrupt = False
+        self._corrupt_bytes = []
 
         self._start_timestamp = 0
         self._last_timestamp = 0
@@ -567,14 +568,38 @@ class ULog(object):
         """
         read the file handle byte by byte until you find the sync byte sequence
         """
+        self._corrupt_bytes.append([])
+
         d = self._file_handle.read(1)
+        bytes_skipped = 1;
         while(d is not b''):
             if (d[0] == ULog.SYNC_BYTES[0]):
-                data = self._file_handle.read(7)
-                if (data == ULog.SYNC_BYTES[1:]):
-                    print("Found sync!")
-                    break
+                    d1 = self._file_handle.read(1)
+                    bytes_skipped = bytes_skipped + 1;
+                    if (d1[0] == ULog.SYNC_BYTES[1]):
+                        data = self._file_handle.read(6)
+                        bytes_skipped = bytes_skipped + 6
+                        if (data == ULog.SYNC_BYTES[2:]):
+                            print("Found sync! Bytes skipped = ", bytes_skipped)
+                            break
+                        else:
+                            self._corrupt_bytes[-1].append(d[0])
+                            self._corrupt_bytes[-1].append(d1[0])
+                            self._corrupt_bytes[-1].append(data[0])
+                            self._corrupt_bytes[-1].append(data[1])
+                            self._corrupt_bytes[-1].append(data[2])
+                            self._corrupt_bytes[-1].append(data[3])
+                            self._corrupt_bytes[-1].append(data[4])
+                            self._corrupt_bytes[-1].append(data[5])
+
+                    else:
+                        self._corrupt_bytes[-1].append(d[0])
+                        self._corrupt_bytes[-1].append(d1[0])
+
+            else:
+                self._corrupt_bytes[-1].append(d[0])
             d = self._file_handle.read(1)
+            bytes_skipped = bytes_skipped + 1
 
     def _read_file_data(self, message_name_filter_list, read_until=None):
         """
@@ -599,6 +624,7 @@ class ULog(object):
                     break #we read past the end of the file
                 except Exception as ex:
                     print(ex, header.msg_size, header.msg_type)
+                    # self._file_corrupt = True
                     try:
                         self._find_sync()
                         continue
