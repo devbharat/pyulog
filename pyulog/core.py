@@ -101,7 +101,7 @@ class ULog(object):
         :param disable_str_parser_exceptions: If True, ignore string parsing errors
         """
 
-        self._debug = False
+        self._debug = True
 
         self._file_corrupt = False
 
@@ -353,9 +353,9 @@ class ULog(object):
 
         def __init__(self, data, header):
             self.log_level, = struct.unpack('<B', data[0:1])
-            self.tag = struct.unpack('<H', data[1:3])
-            self.timestamp, = struct.unpack('<Q', data[3:11])
-            self.message = ULog.parse_string(data[11:])
+            self.tag = struct.unpack('<B', data[1:2])
+            self.timestamp, = struct.unpack('<Q', data[2:10])
+            self.message = ULog.parse_string(data[10:])
 
         def log_level_str(self):
             return {ord('0'): 'EMERGENCY',
@@ -701,7 +701,10 @@ class ULog(object):
 
                         # try recovery with sync sequence in case of unknown msg_type
                         if self._has_sync:
-                            self._find_sync()
+                            if not self._find_sync():
+                                if self._debug:
+                                    print("No sync msg found till EOF. Stop parsing.")
+                                break
                     else:
                         # seek back msg_size to look for sync sequence in payload
                         if self._has_sync:
