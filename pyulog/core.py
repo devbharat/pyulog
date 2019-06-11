@@ -101,7 +101,7 @@ class ULog(object):
         :param disable_str_parser_exceptions: If True, ignore string parsing errors
         """
 
-        self._debug = True
+        self._debug = False
 
         self._file_corrupt = False
 
