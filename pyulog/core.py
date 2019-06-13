@@ -714,6 +714,7 @@ class ULog(object):
 
                         # try recovery with sync sequence in case of unknown msg_type
                         if self._has_sync:
+                            # WINGTRA
                             if not self._find_sync():
                                 if self._debug:
                                     print("No sync msg found till EOF. Stop parsing.")
