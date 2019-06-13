@@ -716,9 +716,12 @@ class ULog(object):
                         if self._has_sync:
                             # WINGTRA
                             if not self._find_sync():
+                                # Update console
                                 if self._debug:
                                     print("No sync msg found till EOF. Stop parsing.")
-                                break
+    
+                                if self._has_sync:
+                                    break
                     else:
                         # seek back msg_size to look for sync sequence in payload
                         if self._has_sync:
