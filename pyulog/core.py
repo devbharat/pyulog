@@ -579,16 +579,19 @@ class ULog(object):
         """
         sync_seq_found = False
         initial_file_position = self._file_handle.tell()
+        current_file_position = initial_file_position
 
         if last_n_bytes != -1:
-            self._file_handle.seek(-last_n_bytes, 1)
+            current_file_position = self._file_handle.seek(-last_n_bytes, 1)
 
         sync_start = self._file_handle.read(1)
+        current_file_position += 1
         try:
             while last_n_bytes == -1 or\
-             (self._file_handle.tell() < initial_file_position):
+             (current_file_position < initial_file_position):
                 if sync_start[0] == ULog.SYNC_BYTES[0]:
                     data = self._file_handle.read(7)
+                    current_file_position += len(data)
                     if data == ULog.SYNC_BYTES[1:]:
                         sync_seq_found = True
                         if self._debug:
@@ -598,15 +601,16 @@ class ULog(object):
 
                     else:
                         # seek back 7 bytes and look for sync start again
-                        self._file_handle.seek(-7, 1)
+                        current_file_position = self._file_handle.seek(-7, 1)
                 sync_start = self._file_handle.read(1)
+                current_file_position += 1
         except IndexError:
             # Reached end of file
             if self._debug:
                 print("_find_sync(): reached EOF")
 
         if not sync_seq_found:
-            self._file_handle.seek(initial_file_position, 0)
+            current_file_position = self._file_handle.seek(initial_file_position, 0)
 
             if last_n_bytes == -1:
                 self._has_sync = False
@@ -637,17 +641,21 @@ class ULog(object):
             header = self._MessageHeader()
             msg_data = self._MessageData()
 
+            curr_file_pos = self._file_handle.tell()
+
             while True:
                 data = self._file_handle.read(3)
+                curr_file_pos += len(data)
                 header.initialize(data)
                 data = self._file_handle.read(header.msg_size)
+                curr_file_pos += len(data)
                 if len(data) < header.msg_size:
                     break # less data than expected. File is most likely cut
 
-                if self._file_handle.tell() > read_until:
+                if curr_file_pos > read_until:
                     if self._debug:
                         print('read until offset=%i done, current pos=%i' %
-                              (read_until, self._file_handle.tell()))
+                              (read_until, curr_file_pos))
                     break
 
                 if header.msg_type == self.MSG_TYPE_INFO:
@@ -692,12 +700,12 @@ class ULog(object):
                         print('_read_file_data: unknown message type: %i (%s)' %
                               (header.msg_type, chr(header.msg_type)))
                         print('file position: %i msg size: %i' % (
-                            self._file_handle.tell(), header.msg_size))
+                            curr_file_pos, header.msg_size))
 
                     if self._check_packet_corruption(header):
                         # seek back to advance only by a single byte instead of
                         # skipping the message
-                        self._file_handle.seek(-2-header.msg_size, 1)
+                        curr_file_pos = self._file_handle.seek(-2-header.msg_size, 1)
 
                         # try recovery with sync sequence in case of unknown msg_type
                         if self._has_sync:
