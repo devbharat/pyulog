@@ -182,6 +182,11 @@ class ULog(object):
         """ dict of MessageLoggingTagged objects """
         return self._logged_messages_tagged
 
+    @property # WINGTRA
+    def logged_messages_obc(self):
+        """ dict of MessageLoggingTagged objects """
+        return self._logged_messages_tagged
+
     @property
     def dropouts(self):
         """ list of MessageDropout objects """
@@ -353,9 +358,9 @@ class ULog(object):
 
         def __init__(self, data, header):
             self.log_level, = struct.unpack('<B', data[0:1])
-            self.tag = struct.unpack('<B', data[1:2])
-            self.timestamp, = struct.unpack('<Q', data[2:10])
-            self.message = ULog.parse_string(data[10:])
+            self.tag = struct.unpack('<B', data[1:2])  # WINGTRA
+            self.timestamp, = struct.unpack('<Q', data[2:10])  # WINGTRA
+            self.message = ULog.parse_string(data[10:])  # WINGTRA
 
         def log_level_str(self):
             return {ord('0'): 'EMERGENCY',
