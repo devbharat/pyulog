@@ -763,79 +763,80 @@ class ULog(object):
                         # set msg_type to zero to ignore the packet
                         header.msg_type = 0
 
-                if header.msg_type == self.MSG_TYPE_INFO:
-                    msg_info = self._MessageInfo(data, header)
-                    self._msg_info_dict[msg_info.key] = msg_info.value
-                elif header.msg_type == self.MSG_TYPE_INFO_MULTIPLE:
-                    msg_info = self._MessageInfo(data, header, is_info_multiple=True)
-                    self._add_message_info_multiple(msg_info)
-                elif header.msg_type == self.MSG_TYPE_PARAMETER:
-                    msg_info = self._MessageInfo(data, header)
-                    self._changed_parameters.append((self._last_timestamp,
-                                                     msg_info.key, msg_info.value))
-                elif header.msg_type == self.MSG_TYPE_ADD_LOGGED_MSG:
-                    msg_add_logged = self._MessageAddLogged(data, header,
-                                                            self._message_formats)
-                    if (message_name_filter_list is None or
-                            msg_add_logged.message_name in message_name_filter_list):
-                        self._subscriptions[msg_add_logged.msg_id] = msg_add_logged
-                    else:
-                        self._filtered_message_ids.add(msg_add_logged.msg_id)
-                elif header.msg_type == self.MSG_TYPE_LOGGING:
-                    msg_logging = self.MessageLogging(data, header)
-                    self._logged_messages.append(msg_logging)
-                elif header.msg_type == self.MSG_TYPE_LOGGING_TAGGED:
-                    msg_log_tagged = self.MessageLoggingTagged(data, header)
-                    if msg_log_tagged.tag in self._logged_messages_tagged:
-                        self._logged_messages_tagged[msg_log_tagged.tag].append(msg_log_tagged)
-                    else:
-                        self._logged_messages_tagged[msg_log_tagged.tag] = [msg_log_tagged]
-                elif header.msg_type == self.MSG_TYPE_DATA:
-                    try:
+                try:
+                    if header.msg_type == self.MSG_TYPE_INFO:
+                        msg_info = self._MessageInfo(data, header)
+                        self._msg_info_dict[msg_info.key] = msg_info.value
+                    elif header.msg_type == self.MSG_TYPE_INFO_MULTIPLE:
+                        msg_info = self._MessageInfo(data, header, is_info_multiple=True)
+                        self._add_message_info_multiple(msg_info)
+                    elif header.msg_type == self.MSG_TYPE_PARAMETER:
+                        msg_info = self._MessageInfo(data, header)
+                        self._changed_parameters.append((self._last_timestamp,
+                                                         msg_info.key, msg_info.value))
+                    elif header.msg_type == self.MSG_TYPE_ADD_LOGGED_MSG:
+                        msg_add_logged = self._MessageAddLogged(data, header,
+                                                                self._message_formats)
+                        if (message_name_filter_list is None or
+                                msg_add_logged.message_name in message_name_filter_list):
+                            self._subscriptions[msg_add_logged.msg_id] = msg_add_logged
+                        else:
+                            self._filtered_message_ids.add(msg_add_logged.msg_id)
+                    elif header.msg_type == self.MSG_TYPE_LOGGING:
+                        msg_logging = self.MessageLogging(data, header)
+                        self._logged_messages.append(msg_logging)
+                    elif header.msg_type == self.MSG_TYPE_LOGGING_TAGGED:
+                        msg_log_tagged = self.MessageLoggingTagged(data, header)
+                        if msg_log_tagged.tag in self._logged_messages_tagged:
+                            self._logged_messages_tagged[msg_log_tagged.tag].append(msg_log_tagged)
+                        else:
+                            self._logged_messages_tagged[msg_log_tagged.tag] = [msg_log_tagged]
+                    elif header.msg_type == self.MSG_TYPE_DATA:
                         msg_data.initialize(data, header, self._subscriptions, self)
                         if msg_data.timestamp != 0 and msg_data.timestamp > self._last_timestamp:
                             self._last_timestamp = msg_data.timestamp
-                    except TypeError:
-                        # seek back msg_size to look for sync sequence in payload
-                        if self._has_sync:
-                            self._find_sync()
-                elif header.msg_type == self.MSG_TYPE_DROPOUT:
-                    msg_dropout = self.MessageDropout(data, header,
-                                                      self._last_timestamp)
-                    self._dropouts.append(msg_dropout)
-                elif header.msg_type == self.MSG_TYPE_SYNC:
-                    if data.find(ULog.SYNC_BYTES) == 0:
-                        self._sync_seq_cnt = self._sync_seq_cnt + 1
-                        self._has_sync = True
-                else:
-                    if self._debug:
-                        print('_read_file_data: unknown message type: %i (%s)' %
-                              (header.msg_type, chr(header.msg_type)))
-                        print('file position: %i msg size: %i' % (
-                            curr_file_pos, header.msg_size))
-
-                    if self._check_packet_corruption(header):
-                        # seek back to advance only by a single byte instead of
-                        # skipping the message
-                        curr_file_pos = self._file_handle.seek(-2-header.msg_size, 1)
-
-                        # try recovery with sync sequence in case of unknown msg_type
-                        if self._has_sync:
-                            # WINGTRA
-                            if not self._find_sync():
-                                # Update console
-                                if self._debug:
-                                    print("No sync msg found till EOF.")
-    
-                                if self._has_sync:
-                                    if self._debug:
-                                        print("Stop parsing.")
-
-                                    break
+                    elif header.msg_type == self.MSG_TYPE_DROPOUT:
+                        msg_dropout = self.MessageDropout(data, header,
+                                                          self._last_timestamp)
+                        self._dropouts.append(msg_dropout)
+                    elif header.msg_type == self.MSG_TYPE_SYNC:
+                        if data.find(ULog.SYNC_BYTES) == 0:
+                            self._sync_seq_cnt = self._sync_seq_cnt + 1
+                            self._has_sync = True
                     else:
-                        # seek back msg_size to look for sync sequence in payload
-                        if self._has_sync:
-                            self._find_sync(header.msg_size)
+                        if self._debug:
+                            print('_read_file_data: unknown message type: %i (%s)' %
+                                  (header.msg_type, chr(header.msg_type)))
+                            print('file position: %i msg size: %i' % (
+                                curr_file_pos, header.msg_size))
+
+                        if self._check_packet_corruption(header):
+                            # seek back to advance only by a single byte instead of
+                            # skipping the message
+                            curr_file_pos = self._file_handle.seek(-2-header.msg_size, 1)
+
+                            # try recovery with sync sequence in case of unknown msg_type
+                            if self._has_sync:
+                                # WINGTRA
+                                if not self._find_sync():
+                                    # Update console
+                                    if self._debug:
+                                        print("No sync msg found till EOF.")
+        
+                                    if self._has_sync:
+                                        if self._debug:
+                                            print("Stop parsing.")
+
+                                        break
+                        else:
+                            # seek back msg_size to look for sync sequence in payload
+                            if self._has_sync:
+                                self._find_sync(header.msg_size)
+
+                except (IndexError, ValueError, TypeError) as e:
+                    # seek back msg_size to look for sync sequence in payload
+                    if self._has_sync:
+                        self._find_sync()
 
         except struct.error:
             pass #we read past the end of the file
