@@ -602,9 +602,10 @@ class ULog(object):
             if self._crc:
                 crc_read = self._file_handle.read(2)
                 crc_calc = crc16xmodem(data, crc16xmodem(data_header))
-                if (crc_calc != (crc_read[1] << 8 | crc_read[0])):
+                if crc_calc != (crc_read[1] << 8 | crc_read[0]):
                     if self._debug:
-                        print("CRC match failed _read_file_definitions at 0x%x" % self._file_handle.tell())
+                        print("CRC match failed _read_file_definitions at 0x%x"\
+                             % self._file_handle.tell())
                     # set msg_type to zero to ignore the packet
                     header.msg_type = 0
             # WINGTRA END
@@ -768,9 +769,10 @@ class ULog(object):
                     curr_file_pos += len(crc_read)
                     crc_calc = crc16xmodem(data, crc16xmodem(data_header))
 
-                    if (crc_calc != (crc_read[1] << 8 | crc_read[0])):
+                    if crc_calc != (crc_read[1] << 8 | crc_read[0]):
                         if self._debug:
-                            print("CRC match failed _read_file_data at 0x%x" % self._file_handle.tell())
+                            print("CRC match failed _read_file_data at 0x%x"\
+                                 % self._file_handle.tell())
                         # set msg_type to zero to ignore the packet
                         header.msg_type = 0
                 # WINGTRA END
@@ -834,7 +836,7 @@ class ULog(object):
                                     # Update console
                                     if self._debug:
                                         print("No sync msg found till EOF.")
-        
+
                                     if self._has_sync:
                                         if self._debug:
                                             print("Stop parsing.")
@@ -845,7 +847,7 @@ class ULog(object):
                             if self._has_sync:
                                 self._find_sync(header.msg_size)
 
-                except (IndexError, ValueError, TypeError) as e:
+                except (IndexError, ValueError, TypeError):
                     # seek back msg_size to look for sync sequence in payload
                     if self._has_sync:
                         self._find_sync()
@@ -860,8 +862,9 @@ class ULog(object):
                 try:
                     data_item = ULog.Data(value)
                     self._data_list.append(data_item)
-                except Exception as e:
-                    print(e)
+                except Exception as ex:
+                    if self._debug:
+                        print('Ignoring exception: %s' % ex)
 
     def _check_packet_corruption(self, header):
         """
