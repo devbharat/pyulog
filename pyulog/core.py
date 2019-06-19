@@ -704,7 +704,9 @@ class ULog(object):
             current_file_position = self._file_handle.seek(initial_file_position, 0)
 
             if last_n_bytes == -1:
-                self._has_sync = False
+                if not self._has_sync:
+                    self._has_sync = False
+
                 if self._debug:
                     print("Failed to find sync in file from %i" % initial_file_position)
             else:
@@ -796,7 +798,9 @@ class ULog(object):
                                                       self._last_timestamp)
                     self._dropouts.append(msg_dropout)
                 elif header.msg_type == self.MSG_TYPE_SYNC:
-                    self._sync_seq_cnt = self._sync_seq_cnt + 1
+                    if data.find(ULog.SYNC_BYTES) == 0:
+                        self._sync_seq_cnt = self._sync_seq_cnt + 1
+                        self._has_sync = True
                 else:
                     if self._debug:
                         print('_read_file_data: unknown message type: %i (%s)' %
@@ -815,9 +819,12 @@ class ULog(object):
                             if not self._find_sync():
                                 # Update console
                                 if self._debug:
-                                    print("No sync msg found till EOF. Stop parsing.")
+                                    print("No sync msg found till EOF.")
     
                                 if self._has_sync:
+                                    if self._debug:
+                                        print("Stop parsing.")
+
                                     break
                     else:
                         # seek back msg_size to look for sync sequence in payload
