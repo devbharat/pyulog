@@ -10,6 +10,7 @@ import numpy as np
 
 __author__ = "Beat Kueng"
 
+# WINGTRA
 # table for calculating CRC
 # this particular table was generated using pycrc v0.7.6, http://www.tty1.net/pycrc/
 # using the configuration:
@@ -77,7 +78,7 @@ def crc16xmodem(data, crc=0):
     Return calculated value of CRC
     """
     return _crc16(data, crc, CRC16_XMODEM_TABLE)
-
+# WINGTRA END
 
 # check python version
 if sys.hexversion >= 0x030000F0:
@@ -194,7 +195,7 @@ class ULog(object):
         self._appended_offsets = [] # file offsets for appended data
         self._has_sync = True # set to false when first file search for sync fails
         self._sync_seq_cnt = 0 # number of sync packets found in file
-        self._crc = False
+        self._crc = False # WINGTRA: boolean flag for Ulog version with crc
 
         ULog._disable_str_exceptions = disable_str_exceptions
 
@@ -530,10 +531,11 @@ class ULog(object):
                         ulog_object._missing_message_ids.add(msg_id)
                         if ulog_object._debug:
                             print(ulog_object._file_handle.tell())
-                        print('Warning: no subscription found for message id {:}. Continuing,'
-                              ' but file is most likely corrupt'.format(msg_id))
+                            # WINGTRA: Print in debug
+                            print('Warning: no subscription found for message id {:}. Continuing,'
+                                  ' but file is most likely corrupt'.format(msg_id))
                 self.timestamp = 0
-                raise TypeError
+                raise TypeError # WINGTRA: To force read_file_data() to fallback on find_sync()
 
     def _add_message_info_multiple(self, msg_info):
         """ add a message info multiple to self._msg_info_multiple_dict """
@@ -578,9 +580,11 @@ class ULog(object):
             raise Exception("Invalid file format (Failed to parse header)")
         self._file_version, = struct.unpack('B', header_data[7:8])
         if self._file_version > 1:
+            # WINGTRA: Read Ulog version to enable/disable CRC checks
             self._crc = True
             if self._file_version > 2:
                 print("Warning: unknown file version. Will attempt to read it anyway")
+            # WINGTRA END
 
         # read timestamp
         self._start_timestamp, = ULog._unpack_uint64(header_data[8:])
@@ -588,12 +592,13 @@ class ULog(object):
     def _read_file_definitions(self):
         header = self._MessageHeader()
         while True:
-            data_header = self._file_handle.read(3)
-            if not data_header:
+            data_header = self._file_handle.read(3) # WINGTRA
+            if not data_header: # WINGTRA
                 break
-            header.initialize(data_header)
+            header.initialize(data_header) # WINGTRA
             data = self._file_handle.read(header.msg_size)
 
+            # WINGTRA: DO CRC check
             if self._crc:
                 crc_read = self._file_handle.read(2)
                 crc_calc = crc16xmodem(data, crc16xmodem(data_header))
@@ -602,6 +607,7 @@ class ULog(object):
                         print("CRC match failed _read_file_definitions at 0x%x" % self._file_handle.tell())
                     # set msg_type to zero to ignore the packet
                     header.msg_type = 0
+            # WINGTRA END
 
             if header.msg_type == self.MSG_TYPE_INFO:
                 msg_info = self._MessageInfo(data, header)
@@ -618,19 +624,23 @@ class ULog(object):
             elif (header.msg_type == self.MSG_TYPE_ADD_LOGGED_MSG or
                   header.msg_type == self.MSG_TYPE_LOGGING or
                   header.msg_type == self.MSG_TYPE_LOGGING_TAGGED):
+                # WINGTRA
                 if self._crc:
                     self._file_handle.seek(-(3+header.msg_size+len(crc_read)), 1)
                 else:
                     self._file_handle.seek(-(3+header.msg_size), 1)
                 break # end of section
+                # WINGTAR END
             elif header.msg_type == self.MSG_TYPE_FLAG_BITS:
                 # make sure this is the first message in the log
                 offset = 16 + 3 + header.msg_size
+                # WINGTRA
                 if self._crc:
                     offset += len(crc_read)
                 if self._file_handle.tell() != offset:
                     print('Error: FLAGS_BITS message must be first message. Offset:',
                           self._file_handle.tell())
+                # WINGTRA END
                 msg_flag_bits = self._MessageFlagBits(data, header)
                 self._compat_flags = msg_flag_bits.compat_flags
                 self._incompat_flags = msg_flag_bits.incompat_flags
@@ -738,9 +748,9 @@ class ULog(object):
             curr_file_pos = self._file_handle.tell()
 
             while True:
-                data_header = self._file_handle.read(3)
-                curr_file_pos += len(data_header)
-                header.initialize(data_header)
+                data_header = self._file_handle.read(3) # WINGTRA
+                curr_file_pos += len(data_header) # WINGTRA
+                header.initialize(data_header) # WINGTRA
                 data = self._file_handle.read(header.msg_size)
                 curr_file_pos += len(data)
                 if len(data) < header.msg_size:
@@ -752,6 +762,7 @@ class ULog(object):
                               (read_until, curr_file_pos))
                     break
 
+                # WINGTRA: Do CRC check
                 if self._crc:
                     crc_read = self._file_handle.read(2)
                     curr_file_pos += len(crc_read)
@@ -762,8 +773,9 @@ class ULog(object):
                             print("CRC match failed _read_file_data at 0x%x" % self._file_handle.tell())
                         # set msg_type to zero to ignore the packet
                         header.msg_type = 0
+                # WINGTRA END
 
-                try:
+                try: # WINGTRA: Handle TypeError, IndexError, ValueError exceptions with find_sync()
                     if header.msg_type == self.MSG_TYPE_INFO:
                         msg_info = self._MessageInfo(data, header)
                         self._msg_info_dict[msg_info.key] = msg_info.value
