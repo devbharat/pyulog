@@ -533,6 +533,7 @@ class ULog(object):
                         print('Warning: no subscription found for message id {:}. Continuing,'
                               ' but file is most likely corrupt'.format(msg_id))
                 self.timestamp = 0
+                raise TypeError
 
     def _add_message_info_multiple(self, msg_info):
         """ add a message info multiple to self._msg_info_multiple_dict """
@@ -790,9 +791,14 @@ class ULog(object):
                     else:
                         self._logged_messages_tagged[msg_log_tagged.tag] = [msg_log_tagged]
                 elif header.msg_type == self.MSG_TYPE_DATA:
-                    msg_data.initialize(data, header, self._subscriptions, self)
-                    if msg_data.timestamp != 0 and msg_data.timestamp > self._last_timestamp:
-                        self._last_timestamp = msg_data.timestamp
+                    try:
+                        msg_data.initialize(data, header, self._subscriptions, self)
+                        if msg_data.timestamp != 0 and msg_data.timestamp > self._last_timestamp:
+                            self._last_timestamp = msg_data.timestamp
+                    except TypeError:
+                        # seek back msg_size to look for sync sequence in payload
+                        if self._has_sync:
+                            self._find_sync()
                 elif header.msg_type == self.MSG_TYPE_DROPOUT:
                     msg_dropout = self.MessageDropout(data, header,
                                                       self._last_timestamp)
@@ -838,8 +844,11 @@ class ULog(object):
         while self._subscriptions:
             _, value = self._subscriptions.popitem()
             if len(value.buffer) > 0: # only add if we have data
-                data_item = ULog.Data(value)
-                self._data_list.append(data_item)
+                try:
+                    data_item = ULog.Data(value)
+                    self._data_list.append(data_item)
+                except Exception as e:
+                    print(e)
 
     def _check_packet_corruption(self, header):
         """
