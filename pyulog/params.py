@@ -26,17 +26,24 @@ def main():
     parser.add_argument('-o', '--octave', dest='octave', action='store_true',
                         help='Use Octave format', default=False)
 
+    parser.add_argument('-t', '--timestamps', dest='timestamps', action='store_true',
+                        help='Extract changed parameters with timestamps', default=False)
+
     parser.add_argument('output_filename', metavar='params.txt',
                         type=argparse.FileType('w'), nargs='?',
                         help='Output filename (default=stdout)', default=sys.stdout)
 
+    parser.add_argument('--ignore', dest='ignore', action='store_true',
+                        help='Ignore string parsing exceptions', default=False)
+
     args = parser.parse_args()
     ulog_file_name = args.filename
+    disable_str_exceptions = args.ignore
 
     message_filter = []
     if not args.initial: message_filter = None
 
-    ulog = ULog(ulog_file_name, message_filter)
+    ulog = ULog(ulog_file_name, message_filter, disable_str_exceptions)
 
     param_keys = sorted(ulog.initial_parameters.keys())
     delimiter = args.delimiter
@@ -45,14 +52,35 @@ def main():
     if not args.octave:
         for param_key in param_keys:
             output_file.write(param_key)
-            output_file.write(delimiter)
-            output_file.write(str(ulog.initial_parameters[param_key]))
-            if not args.initial:
+            if args.initial:
+                output_file.write(delimiter)
+                output_file.write(str(ulog.initial_parameters[param_key]))
+                output_file.write('\n')
+            elif args.timestamps:
+                output_file.write(delimiter)
+                output_file.write(str(ulog.initial_parameters[param_key]))
                 for t, name, value in ulog.changed_parameters:
                     if name == param_key:
                         output_file.write(delimiter)
                         output_file.write(str(value))
-            output_file.write('\n')
+
+                output_file.write('\n')
+                output_file.write("timestamp")
+                output_file.write(delimiter)
+                output_file.write('0')
+                for t, name, value in ulog.changed_parameters:
+                    if name == param_key:
+                        output_file.write(delimiter)
+                        output_file.write(str(t))
+
+                output_file.write('\n')
+            else:
+                for t, name, value in ulog.changed_parameters:
+                    if name == param_key:
+                        output_file.write(delimiter)
+                        output_file.write(str(value))
+
+                output_file.write('\n')
 
     else:
 
