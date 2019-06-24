@@ -699,8 +699,10 @@ class ULog(object):
                 if self._debug:
                     print("Found sync at %i" % (current_file_position - len(chunk) + chunk_index))
                 # seek to end of sync sequence and break
-                current_file_position = self._file_handle.seek(current_file_position - len(chunk)\
-                         + chunk_index + len(ULog.SYNC_BYTES), 0)
+                offset = current_file_position - len(chunk) + chunk_index + len(ULog.SYNC_BYTES)
+                if self._crc:
+                    offset += 2
+                current_file_position = self._file_handle.seek(offset, 0)
                 sync_seq_found = True
                 break
 
