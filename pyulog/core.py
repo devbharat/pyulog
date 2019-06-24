@@ -604,7 +604,7 @@ class ULog(object):
                 crc_calc = crc16xmodem(data, crc16xmodem(data_header))
                 if crc_calc != (crc_read[1] << 8 | crc_read[0]):
                     if self._debug:
-                        print("CRC match failed _read_file_definitions at 0x%x"\
+                        print("CRC match failed _read_file_definitions at 0x%x" \
                              % self._file_handle.tell())
                     # set msg_type to zero to ignore the packet
                     header.msg_type = 0
