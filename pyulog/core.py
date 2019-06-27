@@ -849,8 +849,10 @@ class ULog(object):
                             if self._has_sync:
                                 self._find_sync(header.msg_size)
 
-                except (IndexError, ValueError, TypeError):
+                except (IndexError, ValueError, TypeError, KeyError) as e:
                     # seek back msg_size to look for sync sequence in payload
+                    if self._debug:
+                        print(e)
                     if self._has_sync:
                         self._find_sync()
 
