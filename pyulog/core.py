@@ -718,7 +718,7 @@ class ULog(object):
             current_file_position = self._file_handle.seek(initial_file_position, 0)
 
             if last_n_bytes == -1:
-                self._has_sync = False
+                self._has_sync = False # WINGTRA
 
                 if self._debug:
                     print("Failed to find sync in file from %i" % initial_file_position)
@@ -728,7 +728,7 @@ class ULog(object):
                         (initial_file_position - last_n_bytes, initial_file_position))
         else:
             # declare file corrupt if we skipped bytes to sync sequence
-            self._has_sync = True
+            self._has_sync = True # WINGTRA
             self._file_corrupt = True
 
         return sync_seq_found
@@ -770,7 +770,7 @@ class ULog(object):
                     crc_read = self._file_handle.read(2)
                     curr_file_pos += len(crc_read)
 
-                    if len(crc_read) < 2:
+                    if len(crc_read) < 2: # WINGTRA
                         break # less data than expected. File is most likely cut
 
                     crc_calc = crc16xmodem(data, crc16xmodem(data_header))
@@ -833,10 +833,13 @@ class ULog(object):
                         if self._check_packet_corruption(header):
                             # seek back to advance only by a single byte instead of
                             # skipping the message
+                            
+                            # WINGTRA
                             offset = 2 + header.msg_size
                             if self._crc:
                                 offset += 2
                             curr_file_pos = self._file_handle.seek(-offset, 1)
+                            # WINGTRA END
 
                             # try recovery with sync sequence in case of unknown msg_type
                             if self._has_sync:
