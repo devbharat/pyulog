@@ -63,7 +63,7 @@ setup(
             'ulog2kml=pyulog.ulog2kml:main',
         ],
     },
-    ext_modules = cythonize("pyulog/core.py"),
+    ext_modules = cythonize("pyulog/core.py", language_level=3),
     packages=find_packages(),
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
