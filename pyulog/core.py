@@ -718,8 +718,7 @@ class ULog(object):
             current_file_position = self._file_handle.seek(initial_file_position, 0)
 
             if last_n_bytes == -1:
-                if not self._has_sync:
-                    self._has_sync = False
+                self._has_sync = False # WINGTRA
 
                 if self._debug:
                     print("Failed to find sync in file from %i" % initial_file_position)
@@ -729,6 +728,7 @@ class ULog(object):
                         (initial_file_position - last_n_bytes, initial_file_position))
         else:
             # declare file corrupt if we skipped bytes to sync sequence
+            self._has_sync = True # WINGTRA
             self._file_corrupt = True
 
         return sync_seq_found
@@ -769,6 +769,10 @@ class ULog(object):
                 if self._crc:
                     crc_read = self._file_handle.read(2)
                     curr_file_pos += len(crc_read)
+
+                    if len(crc_read) < 2: # WINGTRA
+                        break # less data than expected. File is most likely cut
+
                     crc_calc = crc16xmodem(data, crc16xmodem(data_header))
 
                     if crc_calc != (crc_read[1] << 8 | crc_read[0]):
@@ -829,7 +833,13 @@ class ULog(object):
                         if self._check_packet_corruption(header):
                             # seek back to advance only by a single byte instead of
                             # skipping the message
-                            curr_file_pos = self._file_handle.seek(-2-header.msg_size, 1)
+                            
+                            # WINGTRA
+                            offset = 2 + header.msg_size
+                            if self._crc:
+                                offset += 2
+                            curr_file_pos = self._file_handle.seek(-offset, 1)
+                            # WINGTRA END
 
                             # try recovery with sync sequence in case of unknown msg_type
                             if self._has_sync:
@@ -839,11 +849,6 @@ class ULog(object):
                                     if self._debug:
                                         print("No sync msg found till EOF.")
 
-                                    if self._has_sync:
-                                        if self._debug:
-                                            print("Stop parsing.")
-
-                                        break
                         else:
                             # seek back msg_size to look for sync sequence in payload
                             if self._has_sync:
