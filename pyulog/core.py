@@ -160,7 +160,7 @@ class ULog(object):
             ret = _parse_string(cstr)
         return ret
 
-    def __init__(self, log_file, message_name_filter_list=None, disable_str_exceptions=True):
+    def __init__(self, log_file, message_name_filter_list=None, disable_str_exceptions=True, check_crc=True):
         """
         Initialize the object & load the file.
 
@@ -196,6 +196,7 @@ class ULog(object):
         self._has_sync = True # set to false when first file search for sync fails
         self._sync_seq_cnt = 0 # number of sync packets found in file
         self._crc = False # WINGTRA: boolean flag for Ulog version with crc
+        self._check_crc = check_crc # WINGTRA: enforce CRC matching. Slows down parsing but more robust.
 
         ULog._disable_str_exceptions = disable_str_exceptions
 
@@ -601,13 +602,14 @@ class ULog(object):
             # WINGTRA: DO CRC check
             if self._crc:
                 crc_read = self._file_handle.read(2)
-                crc_calc = crc16xmodem(data, crc16xmodem(data_header))
-                if crc_calc != (crc_read[1] << 8 | crc_read[0]):
-                    if self._debug:
-                        print("CRC match failed _read_file_definitions at 0x%x" \
-                             % self._file_handle.tell())
-                    # set msg_type to zero to ignore the packet
-                    header.msg_type = 0
+                if self._check_crc:
+                    crc_calc = crc16xmodem(data, crc16xmodem(data_header))
+                    if crc_calc != (crc_read[1] << 8 | crc_read[0]):
+                        if self._debug:
+                            print("CRC match failed _read_file_definitions at 0x%x" \
+                                 % self._file_handle.tell())
+                        # set msg_type to zero to ignore the packet
+                        header.msg_type = 0
             # WINGTRA END
 
             if header.msg_type == self.MSG_TYPE_INFO:
@@ -769,14 +771,15 @@ class ULog(object):
                 if self._crc:
                     crc_read = self._file_handle.read(2)
                     curr_file_pos += len(crc_read)
-                    crc_calc = crc16xmodem(data, crc16xmodem(data_header))
+                    if self._check_crc:
+                        crc_calc = crc16xmodem(data, crc16xmodem(data_header))
 
-                    if crc_calc != (crc_read[1] << 8 | crc_read[0]):
-                        if self._debug:
-                            print("CRC match failed _read_file_data at 0x%x" \
-                                 % self._file_handle.tell())
-                        # set msg_type to zero to ignore the packet
-                        header.msg_type = 0
+                        if crc_calc != (crc_read[1] << 8 | crc_read[0]):
+                            if self._debug:
+                                print("CRC match failed _read_file_data at 0x%x" \
+                                     % self._file_handle.tell())
+                            # set msg_type to zero to ignore the packet
+                            header.msg_type = 0
                 # WINGTRA END
 
                 try: # WINGTRA: Handle TypeError, IndexError, ValueError exceptions with find_sync()
