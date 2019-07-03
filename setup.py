@@ -14,6 +14,7 @@ import sys
 import versioneer
 
 from setuptools import setup, find_packages
+from Cython.Build import cythonize
 
 DOCLINES = __doc__.split("\n")
 
@@ -22,7 +23,6 @@ Development Status :: 1 - Planning
 Intended Audience :: Science/Research
 Intended Audience :: Developers
 License :: OSI Approved :: BSD License
-Programming Language :: Python
 Programming Language :: Python :: 3
 Programming Language :: Other
 Topic :: Software Development
@@ -63,6 +63,7 @@ setup(
             'ulog2kml=pyulog.ulog2kml:main',
         ],
     },
+    ext_modules = cythonize("pyulog/core.py", language_level=3),
     packages=find_packages(),
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
