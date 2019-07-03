@@ -4,5 +4,6 @@ build/
 dist/
 *.egg-info
 .eggs/
-
+*.so
+*.c
 
