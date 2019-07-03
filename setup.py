@@ -50,7 +50,7 @@ setup(
     license='BSD 3-Clause',
     classifiers=[_f for _f in CLASSIFIERS.split('\n') if _f],
     platforms=["Windows", "Linux", "Solaris", "Mac OS-X", "Unix"],
-    install_requires=['numpy'],
+    install_requires=['numpy', 'Cython'],
     tests_require=['nose', 'ddt'],
     test_suite='nose.collector',
     entry_points = {
