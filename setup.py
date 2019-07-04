@@ -14,6 +14,8 @@ import sys
 import versioneer
 
 from setuptools import setup, find_packages
+from distutils.core import setup
+from distutils.extension import Extension
 
 DOCLINES = __doc__.split("\n")
 
@@ -22,7 +24,6 @@ Development Status :: 1 - Planning
 Intended Audience :: Science/Research
 Intended Audience :: Developers
 License :: OSI Approved :: BSD License
-Programming Language :: Python
 Programming Language :: Python :: 3
 Programming Language :: Other
 Topic :: Software Development
@@ -50,7 +51,7 @@ setup(
     license='BSD 3-Clause',
     classifiers=[_f for _f in CLASSIFIERS.split('\n') if _f],
     platforms=["Windows", "Linux", "Solaris", "Mac OS-X", "Unix"],
-    install_requires=['numpy'],
+    install_requires=['numpy', 'Cython'],
     tests_require=['nose', 'ddt'],
     test_suite='nose.collector',
     entry_points = {
@@ -63,6 +64,8 @@ setup(
             'ulog2kml=pyulog.ulog2kml:main',
         ],
     },
+    #ext_modules = cythonize("pyulog/core.py", language_level=3),
+    ext_modules = [Extension("pyulog/core", ["pyulog/core.c"])],
     packages=find_packages(),
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),

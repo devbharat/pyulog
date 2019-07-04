@@ -160,7 +160,7 @@ class ULog(object):
             ret = _parse_string(cstr)
         return ret
 
-    def __init__(self, log_file, message_name_filter_list=None, disable_str_exceptions=True):
+    def __init__(self, log_file, message_name_filter_list=None, disable_str_exceptions=True, check_crc=True):
         """
         Initialize the object & load the file.
 
@@ -196,6 +196,7 @@ class ULog(object):
         self._has_sync = True # set to false when first file search for sync fails
         self._sync_seq_cnt = 0 # number of sync packets found in file
         self._crc = False # WINGTRA: boolean flag for Ulog version with crc
+        self._check_crc = check_crc # WINGTRA: enforce CRC matching. Slows down parsing but more robust.
 
         ULog._disable_str_exceptions = disable_str_exceptions
 
@@ -601,13 +602,14 @@ class ULog(object):
             # WINGTRA: DO CRC check
             if self._crc:
                 crc_read = self._file_handle.read(2)
-                crc_calc = crc16xmodem(data, crc16xmodem(data_header))
-                if crc_calc != (crc_read[1] << 8 | crc_read[0]):
-                    if self._debug:
-                        print("CRC match failed _read_file_definitions at 0x%x" \
-                             % self._file_handle.tell())
-                    # set msg_type to zero to ignore the packet
-                    header.msg_type = 0
+                if self._check_crc:
+                    crc_calc = crc16xmodem(data, crc16xmodem(data_header))
+                    if crc_calc != (crc_read[1] << 8 | crc_read[0]):
+                        if self._debug:
+                            print("CRC match failed _read_file_definitions at 0x%x" \
+                                 % self._file_handle.tell())
+                        # set msg_type to zero to ignore the packet
+                        header.msg_type = 0
             # WINGTRA END
 
             if header.msg_type == self.MSG_TYPE_INFO:
@@ -718,8 +720,7 @@ class ULog(object):
             current_file_position = self._file_handle.seek(initial_file_position, 0)
 
             if last_n_bytes == -1:
-                if not self._has_sync:
-                    self._has_sync = False
+                self._has_sync = False # WINGTRA
 
                 if self._debug:
                     print("Failed to find sync in file from %i" % initial_file_position)
@@ -729,6 +730,7 @@ class ULog(object):
                         (initial_file_position - last_n_bytes, initial_file_position))
         else:
             # declare file corrupt if we skipped bytes to sync sequence
+            self._has_sync = True # WINGTRA
             self._file_corrupt = True
 
         return sync_seq_found
@@ -769,14 +771,19 @@ class ULog(object):
                 if self._crc:
                     crc_read = self._file_handle.read(2)
                     curr_file_pos += len(crc_read)
-                    crc_calc = crc16xmodem(data, crc16xmodem(data_header))
 
-                    if crc_calc != (crc_read[1] << 8 | crc_read[0]):
-                        if self._debug:
-                            print("CRC match failed _read_file_data at 0x%x" \
-                                 % self._file_handle.tell())
-                        # set msg_type to zero to ignore the packet
-                        header.msg_type = 0
+                    if len(crc_read) < 2: # WINGTRA
+                        break # less data than expected. File is most likely cut
+
+                    if self._check_crc:
+                        crc_calc = crc16xmodem(data, crc16xmodem(data_header))
+
+                        if crc_calc != (crc_read[1] << 8 | crc_read[0]):
+                            if self._debug:
+                                print("CRC match failed _read_file_data at 0x%x" \
+                                     % self._file_handle.tell())
+                            # set msg_type to zero to ignore the packet
+                            header.msg_type = 0
                 # WINGTRA END
 
                 try: # WINGTRA: Handle TypeError, IndexError, ValueError exceptions with find_sync()
@@ -829,7 +836,13 @@ class ULog(object):
                         if self._check_packet_corruption(header):
                             # seek back to advance only by a single byte instead of
                             # skipping the message
-                            curr_file_pos = self._file_handle.seek(-2-header.msg_size, 1)
+                            
+                            # WINGTRA
+                            offset = 2 + header.msg_size
+                            if self._crc:
+                                offset += 2
+                            curr_file_pos = self._file_handle.seek(-offset, 1)
+                            # WINGTRA END
 
                             # try recovery with sync sequence in case of unknown msg_type
                             if self._has_sync:
@@ -839,11 +852,6 @@ class ULog(object):
                                     if self._debug:
                                         print("No sync msg found till EOF.")
 
-                                    if self._has_sync:
-                                        if self._debug:
-                                            print("Stop parsing.")
-
-                                        break
                         else:
                             # seek back msg_size to look for sync sequence in payload
                             if self._has_sync:
