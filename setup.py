@@ -16,6 +16,7 @@ import versioneer
 from setuptools import setup, find_packages
 from distutils.core import setup
 from distutils.extension import Extension
+from Cython.Build import cythonize
 
 DOCLINES = __doc__.split("\n")
 
@@ -64,8 +65,8 @@ setup(
             'ulog2kml=pyulog.ulog2kml:main',
         ],
     },
-    #ext_modules = cythonize("pyulog/core.py", language_level=3),
-    ext_modules = [Extension("pyulog/core", ["pyulog/core.c"])],
+    ext_modules = cythonize("pyulog/core.py", language_level=3),
+    # ext_modules = [Extension("pyulog/core", ["pyulog/core.c"])],
     packages=find_packages(),
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
