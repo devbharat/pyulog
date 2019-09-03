@@ -761,8 +761,7 @@ class ULog(object):
                 if len(data) < header.msg_size:
                     if self._debug:
                         print('len(data) < header.msg_size')
-                    # set msg_type to zero to ignore the packet
-                    header.msg_type = 0
+                    break # less data than expected. File is most likely cut
 
                 if curr_file_pos > read_until:
                     if self._debug:
@@ -778,8 +777,7 @@ class ULog(object):
                     if len(crc_read) < 2: # WINGTRA
                         if self._debug:
                             print('len(crc_read) < 2')
-                        # set msg_type to zero to ignore the packet
-                        header.msg_type = 0
+                        break # less data than expected. File is most likely cut
 
                     if self._check_crc:
                         crc_calc = crc16xmodem(data, crc16xmodem(data_header))
