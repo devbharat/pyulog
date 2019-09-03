@@ -759,7 +759,10 @@ class ULog(object):
                 data = self._file_handle.read(header.msg_size)
                 curr_file_pos += len(data)
                 if len(data) < header.msg_size:
-                    break # less data than expected. File is most likely cut
+                    if self._debug:
+                        print('len(data) < header.msg_size')
+                    # set msg_type to zero to ignore the packet
+                    header.msg_type = 0
 
                 if curr_file_pos > read_until:
                     if self._debug:
@@ -773,7 +776,10 @@ class ULog(object):
                     curr_file_pos += len(crc_read)
 
                     if len(crc_read) < 2: # WINGTRA
-                        break # less data than expected. File is most likely cut
+                        if self._debug:
+                            print('len(crc_read) < 2')
+                        # set msg_type to zero to ignore the packet
+                        header.msg_type = 0
 
                     if self._check_crc:
                         crc_calc = crc16xmodem(data, crc16xmodem(data_header))
@@ -838,7 +844,7 @@ class ULog(object):
                             # skipping the message
                             
                             # WINGTRA
-                            offset = 2 + header.msg_size
+                            offset = 2 + len(data)
                             if self._crc:
                                 offset += 2
                             curr_file_pos = self._file_handle.seek(-offset, 1)
@@ -857,7 +863,7 @@ class ULog(object):
                             if self._has_sync:
                                 self._find_sync(header.msg_size)
 
-                except (IndexError, ValueError, TypeError, KeyError) as e:
+                except (IndexError, ValueError, TypeError, KeyError, struct.error) as e:
                     # seek back msg_size to look for sync sequence in payload
                     if self._debug:
                         print(e)
@@ -865,6 +871,8 @@ class ULog(object):
                         self._find_sync()
 
         except struct.error:
+            if self._debug:
+                print("struct.error. Read until 0x%x" % self._file_handle.tell())
             pass #we read past the end of the file
 
         # convert into final representation
