@@ -535,7 +535,6 @@ class ULog(object):
                             print('Warning: no subscription found for message id {:}. Continuing,'
                                   ' but file is most likely corrupt'.format(msg_id))
                 self.timestamp = 0
-                raise TypeError # WINGTRA: To force read_file_data() to fallback on find_sync()
 
     def _add_message_info_multiple(self, msg_info):
         """ add a message info multiple to self._msg_info_multiple_dict """
